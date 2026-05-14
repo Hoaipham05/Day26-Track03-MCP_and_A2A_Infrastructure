@@ -32,6 +32,9 @@ When answering, be precise about:
 
 Always note that your response is for educational purposes and the user
 should consult a licensed attorney for specific legal advice.
+
+Keep the response concise: use short sections and avoid repeating facts already
+stated in the user's question.
 """
 
 

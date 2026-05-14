@@ -111,6 +111,14 @@ async def check_routing(state: LawState) -> dict:
 
     needs_tax = bool(parsed.get("needs_tax", True))
     needs_compliance = bool(parsed.get("needs_compliance", True))
+    question_lower = state["question"].lower()
+    if any(kw in question_lower for kw in ["tax", "irs", "taxes", "thuế"]):
+        needs_tax = True
+    if any(
+        kw in question_lower
+        for kw in ["compliance", "regulatory", "sec", "sox", "aml", "fcpa"]
+    ):
+        needs_compliance = True
     logger.info("Routing decision: needs_tax=%s needs_compliance=%s", needs_tax, needs_compliance)
     return {"needs_tax": needs_tax, "needs_compliance": needs_compliance}
 
@@ -201,7 +209,17 @@ async def aggregate(state: LawState) -> dict:
         HumanMessage(content=combined),
     ]
     result = await llm.ainvoke(messages)
-    return {"final_answer": result.content}
+    answer = result.content or combined
+    weak_answer = answer.lower()
+    if combined and (
+        "could not" in weak_answer
+        or "cannot" in weak_answer
+        or "need more" in weak_answer
+        or "additional details" in weak_answer
+        or len(combined) > len(answer) * 2
+    ):
+        answer = combined
+    return {"final_answer": answer}
 
 
 # ---------------------------------------------------------------------------

@@ -52,16 +52,21 @@ class CustomerAgentExecutor(AgentExecutor):
                 config={"configurable": {"thread_id": context_id}},
             )
 
-            # Extract the last AI message from the result
+            # Extract the last AI message from the result. Small/free models can
+            # sometimes ignore a successful tool result and produce a generic
+            # fallback, so keep the tool response as a stronger fallback.
             answer = ""
+            tool_answer = ""
             for msg in reversed(result.get("messages", [])):
                 if hasattr(msg, "content") and msg.content:
                     if not isinstance(msg, HumanMessage):
-                        # Skip ToolMessages, only want final AIMessage
-                        from langchain_core.messages import AIMessage
+                        from langchain_core.messages import AIMessage, ToolMessage
+
                         if isinstance(msg, AIMessage):
                             answer = msg.content
                             break
+                        if isinstance(msg, ToolMessage) and not tool_answer:
+                            tool_answer = msg.content
 
             if not answer:
                 # Fallback: any non-human message content
@@ -70,6 +75,17 @@ class CustomerAgentExecutor(AgentExecutor):
                     if content and not isinstance(msg, HumanMessage):
                         answer = content
                         break
+
+            weak_answer = answer.lower()
+            if tool_answer and (
+                not answer
+                or "could not be completed" in weak_answer
+                or "cannot retrieve" in weak_answer
+                or "technical difficulties" in weak_answer
+                or "unable to process" in weak_answer
+                or len(tool_answer) > len(answer) * 2
+            ):
+                answer = tool_answer
 
             if not answer:
                 answer = "I was unable to process your legal question at this time."
